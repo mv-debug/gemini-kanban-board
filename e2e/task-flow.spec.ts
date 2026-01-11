@@ -98,4 +98,24 @@ test.describe('Task Flow E2E Tests', () => {
         await expect(page.getByRole('button', { name: /\+ New Task/i })).toBeVisible()
         await expect(page.locator('text=← Back')).not.toBeVisible()
     })
+
+    test('should show path autocomplete suggestions', async ({ page }) => {
+        // Open modal
+        await page.getByRole('button', { name: /\+ New Task/i }).click()
+
+        // Type in working directory
+        // Use a path that definitely exists on Mac, but be generic enough if possible
+        const workingDirInput = page.getByPlaceholder('/path/to/project')
+        await workingDirInput.fill('/Us') // Should trigger /Users
+
+        // Wait for dropdown
+        // The dropdown items in PathAutocomplete are buttons with "📁 {suggestion}"
+        await expect(page.locator('button:has-text("📁 /Users")')).toBeVisible({ timeout: 5000 })
+
+        // Click suggestion
+        await page.locator('button:has-text("📁 /Users")').first().click()
+
+        // Verify input value became the selected path
+        await expect(workingDirInput).toHaveValue('/Users')
+    })
 })

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { TaskCard, type Task } from './TaskCard';
 import { Terminal } from './Terminal';
 import { RolesManager, type Role } from './RolesManager';
+import { PathAutocomplete } from './PathAutocomplete';
 
 interface TaskBoardProps {
   onStartTask: (taskId: string, prompt: string, task: Task) => void;
@@ -252,10 +253,9 @@ export function TaskBoard({ onStartTask, wsRef, onSelectTask, onConnectedChange 
               {/* Working Directory */}
               <div>
                 <label className="block text-xs text-[var(--text-secondary)] mb-1">Working Directory (Optional)</label>
-                <input
-                  type="text"
+                <PathAutocomplete
                   value={newWorkingDir}
-                  onChange={(e) => setNewWorkingDir(e.target.value)}
+                  onChange={setNewWorkingDir}
                   placeholder="/path/to/project"
                   className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border)] rounded-lg px-3 py-2 outline-none focus:border-[var(--accent)] text-sm font-mono"
                 />

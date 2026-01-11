@@ -4,8 +4,8 @@ import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
 import { spawn, exec } from 'child_process';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from 'fs';
+import { dirname, join, basename } from 'path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync, statSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -236,6 +236,82 @@ app.delete('/api/roles/:id', (req, res) => {
   res.status(204).send();
 });
 
+
+// --- Directories (for path autocomplete) ---
+
+// Get directory suggestions for path autocomplete
+app.get('/api/directories', (req, res) => {
+  const { path: inputPath } = req.query;
+
+  if (!inputPath || typeof inputPath !== 'string') {
+    return res.status(400).json({ error: 'Path query parameter is required' });
+  }
+
+  try {
+    // Resolve the path to handle ~ and relative paths
+    let resolvedInput = inputPath;
+    if (inputPath.startsWith('~')) {
+      resolvedInput = inputPath.replace('~', process.env.HOME || '/');
+    }
+
+    // Determine parent directory and prefix
+    let parentDir;
+    let prefix;
+
+    try {
+      const stat = statSync(resolvedInput);
+      if (stat.isDirectory()) {
+        // Input is a complete directory, list its contents
+        parentDir = resolvedInput;
+        prefix = '';
+      } else {
+        parentDir = dirname(resolvedInput);
+        prefix = basename(resolvedInput);
+      }
+    } catch {
+      // Path doesn't exist yet, use parent directory
+      parentDir = dirname(resolvedInput);
+      prefix = basename(resolvedInput);
+    }
+
+    // Check if parent directory exists
+    let parentExists = false;
+    try {
+      const parentStat = statSync(parentDir);
+      parentExists = parentStat.isDirectory();
+    } catch {
+      parentExists = false;
+    }
+
+    if (!parentExists) {
+      return res.json({
+        suggestions: [],
+        isValid: false,
+        parentExists: false
+      });
+    }
+
+    // Read directory entries
+    const entries = readdirSync(parentDir, { withFileTypes: true });
+
+    // Filter to directories only, matching prefix, and limit results
+    const suggestions = entries
+      .filter(entry => entry.isDirectory())
+      .filter(entry => !entry.name.startsWith('.')) // Hide hidden dirs
+      .filter(entry => entry.name.toLowerCase().startsWith(prefix.toLowerCase()))
+      .slice(0, 20)
+      .map(entry => join(parentDir, entry.name));
+
+    res.json({
+      suggestions,
+      isValid: true,
+      parentExists: true
+    });
+  } catch (error) {
+    console.error('Error reading directories:', error);
+    res.status(500).json({ error: 'Failed to read directories' });
+  }
+});
 
 // Serve static files from dist folder
 app.use(express.static(join(__dirname, 'dist')));
