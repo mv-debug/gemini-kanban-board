@@ -103,19 +103,23 @@ test.describe('Task Flow E2E Tests', () => {
         // Open modal
         await page.getByRole('button', { name: /\+ New Task/i }).click()
 
-        // Type in working directory
-        // Use a path that definitely exists on Mac, but be generic enough if possible
+        // Type in working directory - use "/" as the prefix which works on all Unix-like systems
         const workingDirInput = page.getByPlaceholder('/path/to/project')
-        await workingDirInput.fill('/Us') // Should trigger /Users
+        await workingDirInput.fill('/')
 
-        // Wait for dropdown
+        // Wait for dropdown - look for any suggestion with the folder emoji prefix
         // The dropdown items in PathAutocomplete are buttons with "📁 {suggestion}"
-        await expect(page.locator('button:has-text("📁 /Users")')).toBeVisible({ timeout: 5000 })
+        const suggestionButton = page.locator('button:has-text("📁")').first()
+        await expect(suggestionButton).toBeVisible({ timeout: 5000 })
+
+        // Get the suggestion text to verify selection works
+        const suggestionText = await suggestionButton.textContent()
+        const expectedPath = suggestionText?.replace('📁 ', '').trim() || ''
 
         // Click suggestion
-        await page.locator('button:has-text("📁 /Users")').first().click()
+        await suggestionButton.click()
 
         // Verify input value became the selected path
-        await expect(workingDirInput).toHaveValue('/Users')
+        await expect(workingDirInput).toHaveValue(expectedPath)
     })
 })
