@@ -54,7 +54,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check licenses
-        run: pnpm exec license-checker --summary --failOn "GPL-2.0;GPL-3.0;AGPL-3.0;LGPL-2.1;LGPL-3.0"
+        run: pnpm dlx license-checker --summary --failOn "GPL-2.0;GPL-3.0;AGPL-3.0;LGPL-2.1;LGPL-3.0"
 
   unit-tests:
     name: Unit Tests
@@ -108,8 +108,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run integration tests
-        run: pnpm run test:integration
+      - name: Build application
+        run: pnpm run build
+
+      - name: Start server and run integration tests
+        run: |
+          pnpm run server &
+          sleep 3
+          pnpm run test:integration
 
   e2e-tests:
     name: E2E Tests

@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test'
 
+// Skip all tests in this file in CI - they require Gemini CLI
+test.skip(!!process.env.CI, 'Skipping Gemini CLI tests in CI');
+
 test.describe('System E2E Tests', () => {
     test.setTimeout(60000);
 
