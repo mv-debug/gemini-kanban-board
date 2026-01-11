@@ -125,7 +125,7 @@ app.get('/api/tasks', (req, res) => {
 
 // Create a new task
 app.post('/api/tasks', (req, res) => {
-  const { title, description, workingDirectory, roleId } = req.body;
+  const { title, description, workingDirectory, roleId, modelId } = req.body;
 
   if (!title) {
     return res.status(422).json({ error: 'Title is required' });
@@ -137,6 +137,7 @@ app.post('/api/tasks', (req, res) => {
     description: description || '',
     workingDirectory: workingDirectory || null,
     roleId: roleId || null,
+    modelId: modelId || 'gemini-3-pro-preview',
     status: 'todo',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -321,6 +322,7 @@ app.use(express.static(join(__dirname, 'dist')));
 // ============================================
 
 const terminalSessions = new Map();
+const taskProcesses = new Map(); // Map of taskId -> process for kill functionality
 
 // Broadcast to sessions viewing a specific task
 function broadcastToTask(taskId, type, data) {
@@ -422,7 +424,9 @@ wss.on('connection', (ws) => {
             broadcastToTask(taskId, 'output', `\x1b[36mRole: ${roleName}\x1b[0m\r\n`);
             broadcastToTask(taskId, 'output', `\x1b[36mRun directory: ${runDir}\x1b[0m\r\n\r\n`);
 
-            const cmd = `gemini -y -p "${msg.prompt.replace(/"/g, '\\"')}"`;
+            const modelFlag = task.modelId ? ` -m ${task.modelId}` : '';
+            const cmd = `gemini${modelFlag} -y -p "${msg.prompt.replace(/"/g, '\\"')}"`;
+            broadcastToTask(taskId, 'output', `\x1b[36mModel: ${task.modelId || 'default'}\x1b[0m\r\n`);
             broadcastToTask(taskId, 'output', `\x1b[32m$ \x1b[0m${cmd}\r\n`);
 
             const executionDir = task.workingDirectory || currentRunDir;
@@ -441,6 +445,7 @@ wss.on('connection', (ws) => {
                 maxBuffer: 50 * 1024 * 1024,
               });
               session.currentProcess = currentProcess;
+              taskProcesses.set(taskId, currentProcess); // Track for kill functionality
 
               currentProcess.stdout.on('data', (chunk) => {
                 const output = chunk.toString();
@@ -463,6 +468,7 @@ wss.on('connection', (ws) => {
                 // Clear state for this session
                 currentProcess = null;
                 session.currentProcess = null;
+                taskProcesses.delete(taskId);
               });
 
               currentProcess.on('error', (err) => {
@@ -471,6 +477,7 @@ wss.on('connection', (ws) => {
                 updateTaskStatus(taskId, 'done', -1);
                 currentProcess = null;
                 session.currentProcess = null;
+                taskProcesses.delete(taskId);
               });
             } catch (err) {
               const errOutput = `\x1b[31mError: ${err.message}\x1b[0m\r\n\x1b[32m$ \x1b[0m`;
@@ -497,6 +504,31 @@ wss.on('connection', (ws) => {
                 console.error('Failed to read log file:', e);
               }
             }
+          }
+          break;
+        }
+
+        case 'kill_task': {
+          const { taskId } = msg;
+          const proc = taskProcesses.get(taskId);
+          if (proc && proc.pid) {
+            const pid = proc.pid;
+            console.log(`Attempting to kill task ${taskId} (PID: ${pid})`);
+
+            // Use pkill to kill all child processes, then kill the parent
+            // This is more reliable on macOS than process.kill(-pid)
+            exec(`pkill -P ${pid}; kill -9 ${pid} 2>/dev/null`, (err) => {
+              if (err) {
+                console.log(`pkill/kill command returned: ${err.message}`);
+              }
+            });
+
+            broadcastToTask(taskId, 'output', '\r\n\x1b[31m━━━ Task killed by user ━━━\x1b[0m\r\n');
+            updateTaskStatus(taskId, 'done', -9);
+            taskProcesses.delete(taskId);
+            console.log(`Task ${taskId} kill signal sent`);
+          } else {
+            console.log(`No process found for task ${taskId}`);
           }
           break;
         }

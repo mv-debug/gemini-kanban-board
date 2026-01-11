@@ -24,6 +24,7 @@ export function TaskBoard({ onStartTask, wsRef, onSelectTask, onConnectedChange 
   // Roles state
   const [roles, setRoles] = useState<Role[]>([]);
   const [selectedRoleId, setSelectedRoleId] = useState('');
+  const [selectedModelId, setSelectedModelId] = useState('gemini-3-pro-preview');
   const [isRolesManagerOpen, setIsRolesManagerOpen] = useState(false);
 
   const columns = [
@@ -115,6 +116,7 @@ export function TaskBoard({ onStartTask, wsRef, onSelectTask, onConnectedChange 
           description: newDescription.trim(),
           workingDirectory: newWorkingDir.trim() || undefined,
           roleId: selectedRoleId || undefined,
+          modelId: selectedModelId,
         }),
       });
 
@@ -128,6 +130,7 @@ export function TaskBoard({ onStartTask, wsRef, onSelectTask, onConnectedChange 
         setNewDescription('');
         setNewWorkingDir('');
         setSelectedRoleId('');
+        setSelectedModelId('gemini-3-pro-preview');
         setIsCreating(false);
       }
     } catch (error) {
@@ -165,6 +168,15 @@ export function TaskBoard({ onStartTask, wsRef, onSelectTask, onConnectedChange 
 
   const handleRunTask = (task: Task) => {
     onStartTask(task.id, task.description, task);
+  };
+
+  const handleStopTask = (taskId: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'kill_task',
+        taskId
+      }));
+    }
   };
 
   if (isLoading) {
@@ -237,6 +249,7 @@ export function TaskBoard({ onStartTask, wsRef, onSelectTask, onConnectedChange 
                   setNewTitle('');
                   setNewDescription('');
                   setNewWorkingDir('');
+                  setSelectedModelId('gemini-3-pro-preview');
                   setSelectedRoleId('');
                 }
               }}
@@ -279,6 +292,19 @@ export function TaskBoard({ onStartTask, wsRef, onSelectTask, onConnectedChange 
               </div>
             </div>
 
+            {/* Model Selection */}
+            <div className="mb-4">
+              <label className="block text-xs text-[var(--text-secondary)] mb-1">Model</label>
+              <select
+                value={selectedModelId}
+                onChange={(e) => setSelectedModelId(e.target.value)}
+                className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border)] rounded-lg px-3 py-2 outline-none focus:border-[var(--accent)] text-sm appearance-none"
+              >
+                <option value="gemini-3-pro-preview">Gemini 3 Pro (Preview)</option>
+                <option value="gemini-3-flash-preview">Gemini 3 Flash (Preview)</option>
+              </select>
+            </div>
+
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
@@ -287,6 +313,7 @@ export function TaskBoard({ onStartTask, wsRef, onSelectTask, onConnectedChange 
                   setNewDescription('');
                   setNewWorkingDir('');
                   setSelectedRoleId('');
+                  setSelectedModelId('gemini-3-pro-preview');
                 }}
                 className="text-sm text-[var(--text-secondary)] px-4 py-2 rounded-lg hover:text-[var(--text-primary)] transition-colors"
               >
@@ -337,6 +364,7 @@ export function TaskBoard({ onStartTask, wsRef, onSelectTask, onConnectedChange 
                         key={task.id}
                         task={task}
                         onRun={handleRunTask}
+                        onStop={handleStopTask}
                         onDelete={handleDelete}
                         onClick={() => onSelectTask(task)}
                       />

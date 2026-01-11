@@ -5,6 +5,7 @@ export interface Task {
   status: 'todo' | 'in_progress' | 'done';
   workingDirectory?: string;
   roleId?: string;
+  modelId?: string;
   runDir?: string;
   exitCode?: number | null;
 }
@@ -12,11 +13,12 @@ export interface Task {
 interface TaskCardProps {
   task: Task;
   onRun: (task: Task) => void;
+  onStop: (taskId: string) => void;
   onDelete: (id: string) => void;
   onClick: () => void;
 }
 
-export function TaskCard({ task, onRun, onDelete, onClick }: TaskCardProps) {
+export function TaskCard({ task, onRun, onStop, onDelete, onClick }: TaskCardProps) {
   const statusConfig = {
     todo: {
       border: 'border-l-[#6c9eff]',
@@ -94,6 +96,19 @@ export function TaskCard({ task, onRun, onDelete, onClick }: TaskCardProps) {
             className="text-xs bg-[var(--accent)] text-[var(--bg-primary)] px-3 py-1.5 rounded-lg hover:bg-[var(--accent-dim)] transition-colors font-medium"
           >
             ▶ Run
+          </button>
+        )}
+
+        {/* Stop Button - only for running tasks */}
+        {isRunning && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onStop(task.id);
+            }}
+            className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors font-medium"
+          >
+            ■ Stop
           </button>
         )}
       </div>

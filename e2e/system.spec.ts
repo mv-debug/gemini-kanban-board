@@ -27,7 +27,11 @@ test.describe('System E2E Tests', () => {
         await expect(card).toBeVisible()
         await card.getByRole('button', { name: /Run/i }).click()
 
-        // 3. Wait for completion
-        await expect(card).toContainText(/Done/i, { timeout: 60000 })
+        // 3. After clicking Run, we navigate to terminal view
+        // Wait for terminal view to show the task title
+        await expect(page.getByRole('heading', { name: taskTitle })).toBeVisible({ timeout: 10000 })
+
+        // 4. Wait for completion - check the status badge in the terminal header
+        await expect(page.locator('text=/Done.*Exit/')).toBeVisible({ timeout: 60000 })
     })
 })
